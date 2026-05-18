@@ -56,7 +56,7 @@ function deleteProduct(id) {
 
 // === STATE MANAGEMENT ===
 let localProducts = [];
-let currentCategory = 'All';
+let currentCategory = 'All'; // 'All', 'Expired', বা নির্দিষ্ট ক্যাটাগরি ধারণ করবে
 let scannerInstance = null;
 let isTorchOn = false;
 
@@ -130,7 +130,6 @@ function handleFormImage(input) {
     }
 }
 
-// কার্টন বা পিসের দাম ইনপুট দিলে অটোমেটিক কনভার্ট করার ম্যাজিক ফাংশন
 function calculatePrices(source) {
     const pcsPerCarton = parseInt(document.getElementById('form-pcs-per').value) || 1;
     const cartonPriceField = document.getElementById('form-carton-price');
@@ -244,7 +243,7 @@ async function syncData() {
 
     localProducts.forEach(p => {
         totalPcsSum += p.totalPieces;
-        if(new Date(p.expiryDate) < today) expiredCount++;
+        if(p.expiryDate && new Date(p.expiryDate) < today) expiredCount++;
     });
 
     document.getElementById('dash-expired').innerText = expiredCount;
@@ -254,12 +253,33 @@ async function syncData() {
     renderProducts();
 }
 
+// ড্যাশবোর্ডের Expired কার্ডে ক্লিক করার জন্য বিশেষ ফাংশন
+function showExpiredProductsTrigger() {
+    currentCategory = 'Expired'; // ফিল্টার স্টেট সেট করা হলো
+    switchPage('products');      // প্রোডাক্ট পেজে রাউট করা হলো
+}
+
 function renderCategoryFilters() {
     const cats = ['All', 'Grains', 'Dairy', 'Beverages', 'Snacks', 'Packaged', 'Fresh Produce'];
     const container = document.getElementById('category-filters');
-    container.innerHTML = cats.map(c => `
+    
+    // যদি ড্যাশবোর্ড থেকে Expired ট্রিপ করা হয়, তবে ক্যাটাগরি চিপস তৈরিতে এক্সপায়ার্ড বাটনটি একটিভ হাইলাইট পাবে
+    let htmlContent = cats.map(c => `
         <button onclick="setCategoryFilter('${c}')" class="text-xs font-medium px-3 py-1.5 rounded-xl border whitespace-nowrap transition-all ${currentCategory === c ? 'bg-green-600 text-white border-green-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent'}">${c}</button>
     `).join('');
+
+    // যদি ডেডিকেটেড ফিল্টার 'Expired' চালু থাকে, তবে তার চিপস ফিল্টারে যুক্ত হবে
+    if (currentCategory === 'Expired') {
+        htmlContent = `
+            <button onclick="setCategoryFilter('Expired')" class="text-xs font-medium px-3 py-1.5 rounded-xl border whitespace-nowrap transition-all bg-red-600 text-white border-red-600 shadow-sm">⚠️ Expired Items</button>
+        ` + htmlContent;
+    } else {
+        htmlContent = `
+            <button onclick="setCategoryFilter('Expired')" class="text-xs font-medium px-3 py-1.5 rounded-xl border whitespace-nowrap transition-all bg-slate-100 dark:bg-slate-800 text-red-500 border-transparent">⚠️ Expired</button>
+        ` + htmlContent;
+    }
+
+    container.innerHTML = htmlContent;
 }
 
 function setCategoryFilter(c) {
@@ -275,7 +295,16 @@ function renderProducts() {
 
     const filtered = localProducts.filter(p => {
         const matchesQuery = p.name.toLowerCase().includes(query) || p.sku.includes(query);
-        const matchesCat = currentCategory === 'All' || p.category === currentCategory;
+        
+        let matchesCat = false;
+        if (currentCategory === 'All') {
+            matchesCat = true;
+        } else if (currentCategory === 'Expired') {
+            matchesCat = p.expiryDate && new Date(p.expiryDate) < today;
+        } else {
+            matchesCat = p.category === currentCategory;
+        }
+
         return matchesQuery && matchesCat;
     });
 
@@ -291,7 +320,7 @@ function renderProducts() {
     }
 
     grid.innerHTML = filtered.map(p => {
-        const isExpired = new Date(p.expiryDate) < today;
+        const isExpired = p.expiryDate && new Date(p.expiryDate) < today;
         return `
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col justify-between shadow-sm group hover:shadow-md transition-shadow">
                 <div class="relative aspect-[16/10] bg-slate-100 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700/50">
@@ -402,7 +431,7 @@ function startScannerEngine() {
         },
         () => { /* সাইড ফ্রেম ফিল্টারিং এরর */ }
     ).catch(err => {
-        alert("ক্যামেরা এক্সেস করা যায়নি। দয়া করে ব্রাউজারে কামনা পারমিশন চেক করুন।");
+        alert("ক্যামেরা এক্সেস করা যায়নি। দয়া করে ব্রাউজারে ক্যামেরা পারমিশন চেক করুন।");
         console.error(err);
     });
 }
