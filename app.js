@@ -130,6 +130,21 @@ function handleFormImage(input) {
     }
 }
 
+// কার্টন বা পিসের দাম ইনপুট দিলে অটোমেটিক কনভার্ট করার ম্যাজিক ফাংশন
+function calculatePrices(source) {
+    const pcsPerCarton = parseInt(document.getElementById('form-pcs-per').value) || 1;
+    const cartonPriceField = document.getElementById('form-carton-price');
+    const piecePriceField = document.getElementById('form-piece-price');
+
+    if (source === 'carton') {
+        const cartonPrice = parseFloat(cartonPriceField.value) || 0;
+        piecePriceField.value = (cartonPrice / pcsPerCarton).toFixed(2);
+    } else if (source === 'piece') {
+        const piecePrice = parseFloat(piecePriceField.value) || 0;
+        cartonPriceField.value = (piecePrice * pcsPerCarton).toFixed(2);
+    }
+}
+
 function removeFormImage() {
     base64ImageStr = "";
     document.getElementById('image-preview-box').classList.add('hidden');
@@ -147,6 +162,8 @@ function openAddProductForm(prefilledSku = '') {
     removeFormImage();
     document.getElementById('form-id').value = '';
     document.getElementById('form-sku').value = prefilledSku;
+    document.getElementById('form-carton-price').value = '0';
+    document.getElementById('form-piece-price').value = '0';
     document.getElementById('form-title').innerText = 'New Product Inventory';
     document.getElementById('products-list-view').classList.add('hidden');
     document.getElementById('products-form-view').classList.remove('hidden');
@@ -168,6 +185,8 @@ async function saveProduct(e) {
         cartons: parseInt(document.getElementById('form-cartons').value) || 0,
         piecesPerCarton: parseInt(document.getElementById('form-pcs-per').value) || 0,
         totalPieces: parseInt(document.getElementById('form-total-pcs').value) || 0,
+        cartonPrice: parseFloat(document.getElementById('form-carton-price').value) || 0,
+        piecePrice: parseFloat(document.getElementById('form-piece-price').value) || 0,
         expiryDate: document.getElementById('form-expiry').value,
         image: base64ImageStr
     };
@@ -194,6 +213,8 @@ function editProductTrigger(id) {
     document.getElementById('form-cartons').value = p.cartons;
     document.getElementById('form-pcs-per').value = p.piecesPerCarton;
     document.getElementById('form-total-pcs').value = p.totalPieces;
+    document.getElementById('form-carton-price').value = p.cartonPrice || 0;
+    document.getElementById('form-piece-price').value = p.piecePrice || 0;
     document.getElementById('form-expiry').value = p.expiryDate;
     if (p.image) {
         base64ImageStr = p.image;
@@ -287,6 +308,10 @@ function renderProducts() {
                         <div class="grid grid-cols-2 gap-1.5 my-3 bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl text-[11px]">
                             <div class="flex items-center gap-1 text-slate-400"><i data-lucide="layers" class="w-3 h-3 text-green-500"></i> Stock: <b class="text-slate-700 dark:text-slate-200">${p.totalPieces} pcs</b></div>
                             <div class="flex items-center gap-1 text-slate-400 truncate"><i data-lucide="calendar" class="w-3 h-3 text-amber-500"></i> Exp: <b class="text-slate-700 dark:text-slate-200">${p.expiryDate}</b></div>
+                            <div class="flex items-center gap-1 text-slate-400 col-span-2 border-t border-slate-200/40 dark:border-slate-700/40 pt-1 mt-1">
+                                <i data-lucide="banknote" class="w-3 h-3 text-emerald-500"></i> 
+                                <span>Ctn: <b>SAR ${p.cartonPrice || 0}</b> | Pce: <b>SAR ${p.piecePrice || 0}</b></span>
+                            </div>
                         </div>
                     </div>
                     <div class="flex gap-2 border-t border-slate-100 dark:border-slate-700/50 pt-2.5">
@@ -319,6 +344,7 @@ function viewDetailsSheet(id) {
                 <div class="space-y-2.5 border-t border-slate-100 dark:border-slate-700 pt-4 text-sm">
                     <div class="flex items-center gap-3"><i data-lucide="barcode" class="w-4 h-4 text-slate-400"></i><span class="text-slate-400 w-24">Barcode/SKU</span><span class="font-mono font-medium">${p.sku}</span></div>
                     <div class="flex items-center gap-3"><i data-lucide="layers" class="w-4 h-4 text-slate-400"></i><span class="text-slate-400 w-24">Volume Stock</span><span class="font-medium">${p.cartons} Cartons × ${p.piecesPerCarton} (${p.totalPieces} Pcs)</span></div>
+                    <div class="flex items-center gap-3"><i data-lucide="banknote" class="w-4 h-4 text-slate-400"></i><span class="text-slate-400 w-24">Price Rate</span><span class="font-medium text-emerald-600 dark:text-emerald-400">Ctn: SAR ${p.cartonPrice || 0} | Pce: SAR ${p.piecePrice || 0}</span></div>
                     <div class="flex items-center gap-3"><i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i><span class="text-slate-400 w-24">Expiration</span><span class="font-medium text-amber-500">${p.expiryDate}</span></div>
                 </div>
                 <div class="pt-2"><button onclick="closeDetailsSheet()" class="w-full h-10 bg-slate-100 dark:bg-slate-700 rounded-xl text-sm font-medium">Close Sheet</button></div>
@@ -361,12 +387,12 @@ function startScannerEngine() {
     };
 
     scannerInstance.start(
-        { facingMode: "environment" }, // পরিবেশ অর্থ মোবাইলের ব্যাক ক্যামেরা
+        { facingMode: "environment" }, 
         config,
         (decodedText) => {
             const now = Date.now();
             if (decodedText === lastScannedText && (now - lastScanTime) < 4000) {
-                return; // ডুপ্লিকেট স্ক্যান স্কিপ করা হচ্ছে ৪ সেকেন্ডের জন্য
+                return; 
             }
             
             lastScannedText = decodedText;
@@ -376,7 +402,7 @@ function startScannerEngine() {
         },
         () => { /* সাইড ফ্রেম ফিল্টারিং এরর */ }
     ).catch(err => {
-        alert("ক্যামেরা এক্সেস করা যায়নি। দয়া করে ব্রাউজারে ক্যামেরা পারমিশন চেক করুন।");
+        alert("ক্যামেরা এক্সেস করা যায়নি। দয়া করে ব্রাউজারে কামনা পারমিশন চেক করুন।");
         console.error(err);
     });
 }
@@ -406,7 +432,6 @@ function handleScannedBarcode(code) {
     stopScannerEngine().then(() => {
         const match = localProducts.find(p => p.sku === code);
         if (match) {
-            // বারকোড যদি অলরেডি থাকে, তবে তার ডিটেইলস দেখাবে
             document.getElementById('scanner-main-view').classList.add('hidden');
             const container = document.getElementById('matched-card-container');
             container.innerHTML = `
@@ -415,13 +440,13 @@ function handleScannedBarcode(code) {
                     <div>
                         <h4 class="font-bold text-lg">${match.name}</h4>
                         <p class="text-xs font-mono text-slate-400">SKU: ${match.sku}</p>
-                        <p class="text-xs text-slate-500 mt-1">Stock: <b>${match.totalPieces} Pcs</b> | Exp: <b class="text-amber-500">${match.expiryDate}</b></p>
+                        <p class="text-xs text-slate-500 mt-1">Stock: <b>${match.totalPieces} Pcs</b> | Rate: <b class="text-emerald-500">SAR ${match.piecePrice || 0}/pc</b></p>
+                        <p class="text-[11px] text-amber-500 font-medium">Exp: ${match.expiryDate}</p>
                     </div>
                 </div>`;
             document.getElementById('scanner-match-view').classList.remove('hidden');
             lucide.createIcons();
         } else {
-            // বারকোড যদি ডাটাবেজে না থাকে, তবে অটোমেটিক অ্যাড ফর্ম ওপেন হবে
             switchPage('products');
             openAddProductForm(code);
         }
@@ -434,7 +459,6 @@ function restartScanner() {
 
 // === LIFECYCLE INITIALIZER ===
 window.addEventListener('DOMContentLoaded', () => {
-    // থিম রিকভারি লোড
     const savedTheme = localStorage.getItem('theme') || 'light';
     if (savedTheme === 'dark') document.documentElement.classList.add('dark');
     
